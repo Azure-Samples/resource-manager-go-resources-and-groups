@@ -1,0 +1,11 @@
+package: resourceGroupsSample
+import:
+- package: github.com/Azure/azure-sdk-for-go
+  version: v3.2.0-beta
+  subpackages:
+  - arm/resources/resources
+- package: github.com/Azure/go-autorest
+  version: v7.1.0
+  subpackages:
+  - autorest/azure
+  - autorest/to
