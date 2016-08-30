@@ -1,4 +1,4 @@
-package: resourceGroupsSample
+package: resource-manager-go-resources-and-groups
 import:
 - package: github.com/Azure/azure-sdk-for-go
   version: v3.2.0-beta

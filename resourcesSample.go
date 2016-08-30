@@ -39,9 +39,6 @@ func main() {
 
 	location := "westus"
 	resourceGroupName := "azure-sample-group"
-	tags := map[string]*string{
-		"who rocks": to.StringPtr("golang"),
-		"where":     to.StringPtr("on azure")}
 
 	fmt.Println("Create resource group...")
 	resourceGroupParameters := resources.ResourceGroup{
@@ -51,6 +48,9 @@ func main() {
 		return
 	}
 
+	tags := map[string]*string{
+		"who rocks": to.StringPtr("golang"),
+		"where":     to.StringPtr("on azure")}
 	fmt.Println("Update resource group...")
 	resourceGroupParameters.Tags = &tags
 	_, err = groupClient.CreateOrUpdate(resourceGroupName, resourceGroupParameters)
@@ -110,14 +110,14 @@ func checkEnvVar(envVars *map[string]string) error {
 		}
 	}
 	if len(missingVars) > 0 {
-		return fmt.Errorf("Missing environment variables %v", missingVars)
+		return fmt.Errorf("Missing environment variables %s", missingVars)
 	}
 	return nil
 }
 
 // listResourceGroups lists all resource groups and prints them.
 func listResourceGroups(groupClient *resources.GroupsClient) error {
-	groupsList, err := groupClient.List("", to.Int32Ptr(10))
+	groupsList, err := groupClient.List("", nil)
 	if err != nil {
 		return err
 	}
@@ -129,17 +129,17 @@ func listResourceGroups(groupClient *resources.GroupsClient) error {
 				tags += "\t\tNo tags yet\n"
 			} else {
 				for k, v := range *group.Tags {
-					tags += fmt.Sprintf("\t\t%v = %v\n", k, *v)
+					tags += fmt.Sprintf("\t\t%s = %s\n", k, *v)
 				}
 			}
-			fmt.Printf("Resource group '%v'\n", *group.Name)
+			fmt.Printf("Resource group '%s'\n", *group.Name)
 			elements := map[string]interface{}{
 				"ID":                 *group.ID,
 				"Location":           *group.Location,
 				"Provisioning state": *group.Properties.ProvisioningState,
 				"Tags":               tags}
 			for k, v := range elements {
-				fmt.Printf("\t%v: %v\n", k, v)
+				fmt.Printf("\t%s: %s\n", k, v)
 			}
 		}
 	} else {
@@ -150,33 +150,33 @@ func listResourceGroups(groupClient *resources.GroupsClient) error {
 
 // listResources lists all resources inside a resource group and prints them.
 func listResources(groupClient *resources.GroupsClient, resourceGroupName string) error {
-	resourcesList, err := groupClient.ListResources(resourceGroupName, "", "", to.Int32Ptr(100))
+	resourcesList, err := groupClient.ListResources(resourceGroupName, "", "", nil)
 	if err != nil {
 		return err
 	}
 	if len(*resourcesList.Value) > 0 {
-		fmt.Printf("Resources in '%v' resource group\n", resourceGroupName)
+		fmt.Printf("Resources in '%s' resource group\n", resourceGroupName)
 		for _, resource := range *resourcesList.Value {
 			tags := "\n"
 			if resource.Tags == nil || len(*resource.Tags) <= 0 {
 				tags += "\t\t\tNo tags yet\n"
 			} else {
 				for k, v := range *resource.Tags {
-					tags += fmt.Sprintf("\t\t\t%v = %v\n", k, *v)
+					tags += fmt.Sprintf("\t\t\t%s = %s\n", k, *v)
 				}
 			}
-			fmt.Printf("\tResource '%v'\n", *resource.Name)
+			fmt.Printf("\tResource '%s'\n", *resource.Name)
 			elements := map[string]interface{}{
 				"ID":       *resource.ID,
 				"Location": *resource.Location,
 				"Type":     *resource.Type,
 				"Tags":     tags}
 			for k, v := range elements {
-				fmt.Printf("\t\t%v: %v\n", k, v)
+				fmt.Printf("\t\t%s: %s\n", k, v)
 			}
 		}
 	} else {
-		fmt.Printf("There aren't any resources inside '%v' resource group\n", resourceGroupName)
+		fmt.Printf("There aren't any resources inside '%s' resource group\n", resourceGroupName)
 	}
 	return nil
 }
@@ -190,13 +190,14 @@ func exportTemplate(groupClient *resources.GroupsClient, resourceGroupName strin
 	if err != nil {
 		return err
 	}
-	exported, err := json.MarshalIndent(template, "", "    ")
+	prefix, indent := "", "    "
+	exported, err := json.MarshalIndent(template, prefix, indent)
 	if err != nil {
 		return err
 	}
-	fileName := fmt.Sprintf("%v-template.json", resourceGroupName)
+	fileName := fmt.Sprintf("%s-template.json", resourceGroupName)
 	if _, err := os.Stat(fileName); err == nil {
-		return fmt.Errorf("File '%v' already exists", fileName)
+		return fmt.Errorf("File '%s' already exists", fileName)
 	}
 	return ioutil.WriteFile(fileName, exported, 0666)
 
@@ -205,6 +206,6 @@ func exportTemplate(groupClient *resources.GroupsClient, resourceGroupName strin
 // printError prints non nil errors.
 func printError(err error) {
 	if err != nil {
-		fmt.Printf("Error! %v\n", err)
+		fmt.Printf("Error! %s\n", err)
 	}
 }
