@@ -9,6 +9,7 @@ author: mcardosos
 This package demonstrates how to manage [resources and resource groups](bhttps://azure.microsoft.com/documentation/articles/resource-group-overview/#resource-groups) using Azure SDK for Go.
 
 If you don't have a Microsoft Azure subscription you can get a FREE trial account [here](https://azure.microsoft.com/pricing/free-trial).
+
 **On this page**
 
 - [Run this sample](#run)
