@@ -4,7 +4,7 @@ platforms: go
 author: mcardosos
 ---
 
-#Manage Azure resources and resource groups with Go
+# Manage Azure resources and resource groups with Go
 
 This package demonstrates how to manage [resources and resource groups](bhttps://azure.microsoft.com/documentation/articles/resource-group-overview/#resource-groups) using Azure SDK for Go.
 
@@ -13,80 +13,79 @@ If you don't have a Microsoft Azure subscription you can get a FREE trial accoun
 **On this page**
 
 - [Run this sample](#run)
-- [What does resourceSample.go do?](#sample)
+- [What does example.go do?](#sample)
 - [More information](#info)
 
 <a id="run"></a>
+
 ## Run this sample
 
-1. Create a [service principal](https://azure.microsoft.com/documentation/articles/resource-group-authenticate-service-principal-cli/). You will need the Tenant ID, Client ID and Client Secret for [authentication](https://github.com/Azure/azure-sdk-for-go/tree/master/arm#first-a-sidenote-authentication-and-the-azure-resource-manager), so keep them as soon as you get them.
-2. Get your Azure Subscription ID using either of the methods mentioned below:
-  - Get it through the [portal](portal.azure.com) in the subscriptions section.
-  - Get it using the [Azure CLI](https://azure.microsoft.com/documentation/articles/xplat-cli-install/) with command `azure account show`.
-  - Get it using [Azure Powershell](https://azure.microsoft.com/documentation/articles/powershell-install-configure/) whit cmdlet `Get-AzureRmSubscription`.
-3. Set environment variables `AZURE_TENANT_ID = <TENANT_ID>`, `AZURE_CLIENT_ID = <CLIENT_ID>`, `AZURE_CLIENT_SECRET = <CLIENT_SECRET>` and `AZURE_SUBSCRIPTION_ID = <SUBSCRIPTION_ID>`.
-4. Get this sample using command `go get -u github.com/Azure-Samples/resource-manager-go-resources-and-groups`.
-5. Get the [Azure SDK for Go](https://github.com/Azure/azure-sdk-for-go) using command `go get -u github.com/Azure/azure-sdk-for-go`. Or in case that you want to vendor your dependencies using [glide](https://github.com/Masterminds/glide), navigate to this sample's directory and use command `glide install`.
-6. Compile and run the sample.
+1. If you don't already have it, [install Go 1.7](https://golang.org/dl/).
+
+1. Clone the repository.
+
+    ```
+    git clone https://github.com:Azure-Samples/virtual-machines-go-manage.git
+    ```
+
+1. Install the dependencies using glide.
+
+    ```
+    cd virtual-machines-go-manage
+    glide install
+    ```
+
+1. Create an Azure service principal either through
+    [Azure CLI](https://azure.microsoft.com/documentation/articles/resource-group-authenticate-service-principal-cli/),
+    [PowerShell](https://azure.microsoft.com/documentation/articles/resource-group-authenticate-service-principal/)
+    or [the portal](https://azure.microsoft.com/documentation/articles/resource-group-create-service-principal-portal/).
+
+1. Set the following environment variables using the information from the service principle that you created.
+
+    ```
+    export AZURE_TENANT_ID={your tenant id}
+    export AZURE_CLIENT_ID={your client id}
+    export AZURE_CLIENT_SECRET={your client secret}
+    export AZURE_SUBSCRIPTION_ID={your subscription id}
+    ```
+
+    > [AZURE.NOTE] On Windows, use `set` instead of `export`.
+
+1. Run the sample.
+
+    ```
+    go run example.go
+    ```
+
 
 <a id="sample"></a>
-## What does resourceSample.go do?
 
-The sample gets an authorization token, creates a new resource group, updates it, lists the resource groups, creates a resource using a generic template, updates the resource, lists the resources inside the resource group, exports all resources into a json template, deletes a resource, and deletes the resource group.
-
-### Get credentials and token
-
-The sample starts by getting an authorization token from the service principal using your credentials. This token should be included in clients.
-
-```
-	credentials := map[string]string{
-		"AZURE_CLIENT_ID":       os.Getenv("AZURE_CLIENT_ID"),
-		"AZURE_CLIENT_SECRET":   os.Getenv("AZURE_CLIENT_SECRET"),
-		"AZURE_SUBSCRIPTION_ID": os.Getenv("AZURE_SUBSCRIPTION_ID"),
-		"AZURE_TENANT_ID":       os.Getenv("AZURE_TENANT_ID")}
-	if err := checkEnvVar(&credentials); err != nil {
-		return err
-	}
-	oauthConfig, err := azure.PublicCloud.OAuthConfigForTenant(credentials["AZURE_TENANT_ID"])
-	if err != nil {
-		return err
-	}
-	token, err := azure.NewServicePrincipalToken(*oauthConfig, credentials["AZURE_CLIENT_ID"], credentials["AZURE_CLIENT_SECRET"], azure.PublicCloud.ResourceManagerEndpoint)
-	if err != nil {
-		return err
-	}
-```
+## What does example.go do?
 
 ### Create resource group
 
-Then, the sample creates a GroupsClient, which creates a resource group.
-
-```
-groupClient := resources.NewGroupsClient(credentials["AZURE_SUBSCRIPTION_ID"])
-groupClient.Authorizer = token
-location := "westus"
-resourceGroupName := "azure-sample-group"	resourceGroupParameters := resources.ResourceGroup{
-	Location: &location}
-if _, err := groupClient.CreateOrUpdate(resourceGroupName, resourceGroupParameters); err != nil {
-	return err
-}
+```go
+	rg := resources.ResourceGroup{
+		Location: to.StringPtr(location),
+	}
+	_, err := groupsClient.CreateOrUpdate(groupName, rg)
 ```
 
 ### Update the resource group
 
 The sample updates the resource group with tags.
 
-```
-tags := map[string]*string{
+```go
+	rg.Tags = &map[string]*string{
 		"who rocks": to.StringPtr("golang"),
-		"where":     to.StringPtr("on azure")}
-resourceGroupParameters.Tags = &tags
-_, err = groupClient.CreateOrUpdate(resourceGroupName, resourceGroupParameters)
+		"where":     to.StringPtr("on azure"),
+	}
+	_, err := groupsClient.CreateOrUpdate(groupName, rg)
 ```
 
 ### List resource groups in subscription
 
-```
+```go
 groupsList, err := groupClient.List("", nil)
 ```
 
@@ -94,73 +93,76 @@ groupsList, err := groupClient.List("", nil)
 
 In this sample, a Key Vault is created, but it can be any resource.
 
-```
-resourceClient := resources.NewClient(credentials["AZURE_SUBSCRIPTION_ID"])
-resourceClient.Authorizer = token
-resourceClient.APIVersion = "2015-06-01"
-namespace, resourceType, vaultName := "Microsoft.KeyVault", "vaults", "azureSampleVault"
-keyVaultParameters := resources.GenericResource{
-	Location: &location,
-	Properties: &map[string]interface{}{
-		"sku": map[string]string{
-			"Family": "A",
-			"Name":   "standard"},
-		"tenantID":             credentials["AZURE_TENANT_ID"],
-		"accessPolicies":       []string{},
-		"enabledForDeployment": true}}
-if _, err = resourceClient.CreateOrUpdate(resourceGroupName, namespace, "", resourceType, vaultName, keyVaultParameters); err != nil {
-	return err
-}
+```go
+	genericResource := resources.GenericResource{
+		Location: to.StringPtr(location),
+		Properties: &map[string]interface{}{
+			"sku": map[string]string{
+				"Family": "A",
+				"Name":   "standard",
+			},
+			"tenantID":             tenantID,
+			"accessPolicies":       []string{},
+			"enabledForDeployment": true,
+		},
+	}
+	_, err := resourcesClient.CreateOrUpdate(groupName, namespace, "", resourceType, resourceName, genericResource, nil)
 ```
 
 ### Update the resource with tags
 
-```
-keyVaultParameters.Tags = &tags
-_, err = resourceClient.CreateOrUpdate(resourceGroupName, namespace, "", resourceType, vaultName, keyVaultParameters)
+```go
+	gr.Tags = &map[string]*string{
+		"who rocks": to.StringPtr("golang"),
+		"where":     to.StringPtr("on azure"),
+	}
+	_, err := resourcesClient.CreateOrUpdate(groupName, namespace, "", resourceType, resourceName, gr, nil)
 ```
 
 ### List resources inside the resource group
 
-```
-resourcesList, err := groupClient.ListResources(resourceGroupName, "", nil)
+```go
+	resourcesList, err := groupsClient.ListResources(groupName, "", "", nil)
 ```
 
-###Export resource group template to a json file
+### Export resource group template to a json file
 
 Resources can be exported into a json file. The asterisk * indicates all resources should be exported. Later, the json file can be used for [template deployment](https://github.com/Azure-Samples/resource-manager-go-template-deployment).
 
-```
-expReq := resources.ExportTemplateRequest{
-	Resources: &[]string{"*"}}
-template, err := groupClient.ExportTemplate(resourceGroupName, expReq)
-if err != nil {
-	return err
-}
-exported, err := json.MarshalIndent(template, "", "    ")
-if err != nil {
-	return err
-}
-fileName := fmt.Sprintf("%v-template.json", resourceGroupName)
-if _, err := os.Stat(fileName); err == nil {
-	return fmt.Errorf("File '%v' already exists", fileName)
-}
-return ioutil.WriteFile(fileName, exported, 0666)
+```go
+	// The asterisk * indicates all resources should be exported.
+	expReq := resources.ExportTemplateRequest{
+		Resources: &[]string{"*"},
+	}
+	template, err := groupsClient.ExportTemplate(groupName, expReq)
+	onErrorFail(err, "ExportTemplate failed")
+
+	prefix, indent := "", "    "
+	exported, err := json.MarshalIndent(template, prefix, indent)
+	onErrorFail(err, "MarshalIndent failed")
+
+	fileTemplate := "%s-template.json"
+	fileName := fmt.Sprintf(fileTemplate, groupName)
+	if _, err := os.Stat(fileName); err == nil {
+		onErrorFail(fmt.Errorf("File '%s' already exists", fileName), "Saving JSON file failed")
+	}
+	ioutil.WriteFile(fileName, exported, 0666)
 ```
 
-###Delete a generic resource
+### Delete a generic resource
 
-```
-_, err = resourceClient.Delete(resourceGroupName, namespace, "", resourceType, vaultName)
+```go
+	_, err := resourcesClient.Delete(groupName, namespace, "", resourceType, resourceName, nil)
 ```
 
-###Delete the resource group
+### Delete the resource group
 
-```
-_, err = groupClient.Delete(resourceGroupName, nil)
+```go
+	_, err := groupsClient.Delete(groupName, nil)
 ```
 
 <a id="info"></a>
+
 ## More information
 
 - [First a Sidenote: Authentication and the Azure Resource Manager](https://github.com/Azure/azure-sdk-for-go/tree/master/arm#first-a-sidenote-authentication-and-the-azure-resource-manager)
