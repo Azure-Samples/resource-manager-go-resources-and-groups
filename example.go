@@ -90,8 +90,10 @@ func listResourceGroups() {
 	groupsList, err := groupsClient.List("", nil)
 	onErrorFail(err, "List failed")
 	if groupsList.Value != nil && len(*groupsList.Value) > 0 {
+		allGroupsList := []resources.ResourceGroup{}
+		appendResourceGroups(&allGroupsList, groupsList, to.IntPtr(0))
 		fmt.Println("Resource groups in subscription")
-		for _, group := range *groupsList.Value {
+		for _, group := range allGroupsList {
 			tags := "\n"
 			if group.Tags == nil || len(*group.Tags) <= 0 {
 				tags += "\t\tNo tags yet\n"
@@ -112,6 +114,18 @@ func listResourceGroups() {
 		}
 	} else {
 		fmt.Println("There aren't any resource groups")
+	}
+}
+
+func appendResourceGroups(allGroupsList *[]resources.ResourceGroup, lastResults resources.ResourceGroupListResult, page *int) {
+	for _, g := range *lastResults.Value {
+		*allGroupsList = append(*allGroupsList, g)
+	}
+	if lastResults.NextLink != nil {
+		lastResults, err := groupsClient.ListNextResults(lastResults)
+		onErrorFail(err, fmt.Sprintf("ListNext failed on page %v", *page))
+		*page++
+		appendResourceGroups(allGroupsList, lastResults, page)
 	}
 }
 

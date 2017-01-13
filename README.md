@@ -22,13 +22,19 @@ If you don't have a Microsoft Azure subscription you can get a FREE trial accoun
 
 1. If you don't already have it, [install Go 1.7](https://golang.org/dl/).
 
-1. Clone the repository.
+1. Get the sample. You can use either
+
+	```
+	go get github.com/Azure-Samples/resource-manager-go-resources-and-groups
+	```
+
+	or
 
     ```
     git clone https://github.com:Azure-Samples/virtual-machines-go-manage.git
     ```
 
-1. Install the dependencies using glide.
+1. Install the dependencies using [glide](https://github.com/Masterminds/glide).
 
     ```
     cd virtual-machines-go-manage
