@@ -244,9 +244,11 @@ func getEnvVarOrExit(varName string) string {
 }
 
 // onErrorFail prints a failure message and exits the program if err is not nil.
+// it also deletes the resource group created in the sample
 func onErrorFail(err error, message string) {
 	if err != nil {
 		fmt.Printf("%s: %s\n", message, err)
+		groupsClient.Delete(groupName, nil)
 		os.Exit(1)
 	}
 }
