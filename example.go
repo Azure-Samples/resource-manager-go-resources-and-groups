@@ -8,8 +8,10 @@ import (
 	"os"
 
 	"github.com/Azure/azure-sdk-for-go/arm/resources/resources"
+	"github.com/Azure/go-autorest/autorest"
 	"github.com/Azure/go-autorest/autorest/azure"
 	"github.com/Azure/go-autorest/autorest/to"
+	"github.com/Azure/go-autorest/autorest/utils"
 )
 
 var (
@@ -22,22 +24,16 @@ var (
 	resourceName = "golangrocksonazure"
 
 	groupsClient    resources.GroupsClient
-	resourcesClient resources.Client
+	resourcesClient resources.GroupClient
 )
 
 func init() {
-	subscriptionID := getEnvVarOrExit("AZURE_SUBSCRIPTION_ID")
-	tenantID = getEnvVarOrExit("AZURE_TENANT_ID")
+	authorizer, err := utils.GetAuthorizer(azure.PublicCloud)
+	onErrorFail(err, "GetAuthorizer failed")
 
-	oauthConfig, err := azure.PublicCloud.OAuthConfigForTenant(tenantID)
-	onErrorFail(err, "OAuthConfigForTenant failed")
-
-	clientID := getEnvVarOrExit("AZURE_CLIENT_ID")
-	clientSecret := getEnvVarOrExit("AZURE_CLIENT_SECRET")
-	spToken, err := azure.NewServicePrincipalToken(*oauthConfig, clientID, clientSecret, azure.PublicCloud.ResourceManagerEndpoint)
-	onErrorFail(err, "NewServicePrincipalToken failed")
-
-	createClients(subscriptionID, spToken)
+	subscriptionID := utils.GetEnvVarOrExit("AZURE_SUBSCRIPTION_ID")
+	tenantID = utils.GetEnvVarOrExit("AZURE_TENANT_ID")
+	createClients(subscriptionID, authorizer)
 }
 
 func main() {
@@ -59,12 +55,14 @@ func main() {
 
 	deleteResource()
 	deleteResourceGroup()
+
+	fmt.Println("Done!")
 }
 
 // createResourceGroup creates a resource group
-func createResourceGroup() resources.ResourceGroup {
+func createResourceGroup() resources.Group {
 	fmt.Println("Create resource group")
-	rg := resources.ResourceGroup{
+	rg := resources.Group{
 		Location: to.StringPtr(location),
 	}
 	_, err := groupsClient.CreateOrUpdate(groupName, rg)
@@ -74,7 +72,7 @@ func createResourceGroup() resources.ResourceGroup {
 }
 
 // updateResourceGroups updates a resource roup
-func updateResourceGroup(rg resources.ResourceGroup) {
+func updateResourceGroup(rg resources.Group) {
 	fmt.Println("Update resource group")
 	rg.Tags = &map[string]*string{
 		"who rocks": to.StringPtr("golang"),
@@ -90,7 +88,7 @@ func listResourceGroups() {
 	groupsList, err := groupsClient.List("", nil)
 	onErrorFail(err, "List failed")
 	if groupsList.Value != nil && len(*groupsList.Value) > 0 {
-		allGroupsList := []resources.ResourceGroup{}
+		allGroupsList := []resources.Group{}
 		appendResourceGroups(&allGroupsList, groupsList, to.IntPtr(0))
 		fmt.Println("Resource groups in subscription")
 		for _, group := range allGroupsList {
@@ -117,7 +115,7 @@ func listResourceGroups() {
 	}
 }
 
-func appendResourceGroups(allGroupsList *[]resources.ResourceGroup, lastResults resources.ResourceGroupListResult, page *int) {
+func appendResourceGroups(allGroupsList *[]resources.Group, lastResults resources.GroupListResult, page *int) {
 	for _, g := range *lastResults.Value {
 		*allGroupsList = append(*allGroupsList, g)
 	}
@@ -144,8 +142,15 @@ func createResource() resources.GenericResource {
 			"enabledForDeployment": true,
 		},
 	}
-	_, err := resourcesClient.CreateOrUpdate(groupName, namespace, "", resourceType, resourceName, genericResource, nil)
-	onErrorFail(err, "CreateOrUpdate failed")
+	req, err := resourcesClient.CreateOrUpdatePreparer(groupName, namespace, "", resourceType, resourceName, genericResource, nil)
+	onErrorFail(err, "CreateOrUpdatePreparer failed")
+	req.URL.RawQuery = "api-version=2015-06-01"
+
+	resp, err := resourcesClient.CreateOrUpdateSender(req)
+	onErrorFail(err, "CreateOrUpdateSender failed")
+
+	genericResource, err = resourcesClient.CreateOrUpdateResponder(resp)
+	onErrorFail(err, "CreateOrUpdateResponder failed")
 
 	return genericResource
 }
@@ -157,8 +162,15 @@ func updateResource(gr resources.GenericResource) {
 		"who rocks": to.StringPtr("golang"),
 		"where":     to.StringPtr("on azure"),
 	}
-	_, err := resourcesClient.CreateOrUpdate(groupName, namespace, "", resourceType, resourceName, gr, nil)
-	onErrorFail(err, "CreateOrUpdate failed")
+	req, err := resourcesClient.CreateOrUpdatePreparer(groupName, namespace, "", resourceType, resourceName, gr, nil)
+	onErrorFail(err, "CreateOrUpdatePreparer failed")
+	req.URL.RawQuery = "api-version=2015-06-01"
+
+	resp, err := resourcesClient.CreateOrUpdateSender(req)
+	onErrorFail(err, "CreateOrUpdateSender failed")
+
+	_, err = resourcesClient.CreateOrUpdateResponder(resp)
+	onErrorFail(err, "CreateOrUpdateResponder failed")
 }
 
 // listResources lists all resources inside a resource group and prints them.
@@ -198,7 +210,7 @@ func exportTemplate() {
 	fmt.Println("Export resource group template")
 	// The asterisk * indicates all resources should be exported.
 	expReq := resources.ExportTemplateRequest{
-		Resources: &[]string{"*"},
+		ResourcesProperty: &[]string{"*"},
 	}
 	template, err := groupsClient.ExportTemplate(groupName, expReq)
 	onErrorFail(err, "ExportTemplate failed")
@@ -212,7 +224,7 @@ func exportTemplate() {
 	if _, err := os.Stat(fileName); err == nil {
 		onErrorFail(fmt.Errorf("File '%s' already exists", fileName), "Saving JSON file failed")
 	}
-	ioutil.WriteFile(fileName, exported, 0666)
+	err = ioutil.WriteFile(fileName, exported, 0666)
 	onErrorFail(err, "WriteFile failed")
 
 	fmt.Printf("The resource group template has been saved to %s\n", fmt.Sprintf(fileTemplate, groupName))
@@ -221,15 +233,22 @@ func exportTemplate() {
 // deleteResource deletes a generic resource
 func deleteResource() {
 	fmt.Println("Delete a resource")
-	_, err := resourcesClient.Delete(groupName, namespace, "", resourceType, resourceName, nil)
-	onErrorFail(err, "Delete failed")
+	req, err := resourcesClient.DeletePreparer(groupName, namespace, "", resourceType, resourceName, nil)
+	onErrorFail(err, "DeletePreparer failed")
+	req.URL.RawQuery = "api-version=2015-06-01"
+
+	resp, err := resourcesClient.DeleteSender(req)
+	onErrorFail(err, "DeleteSender failed")
+
+	_, err = resourcesClient.DeleteResponder(resp)
+	onErrorFail(err, "DeleteResponder failed")
 }
 
 // deleteResourceGroup deletes a resource group
 func deleteResourceGroup() {
 	fmt.Println("Delete resource group")
-	_, err := groupsClient.Delete(groupName, nil)
-	onErrorFail(err, "Delete failed")
+	_, errChan := groupsClient.Delete(groupName, nil)
+	onErrorFail(<-errChan, "Delete failed")
 }
 
 // getEnvVarOrExit returns the value of specified environment variable or terminates if it's not defined.
@@ -253,11 +272,14 @@ func onErrorFail(err error, message string) {
 	}
 }
 
-func createClients(subscriptionID string, spToken *azure.ServicePrincipalToken) {
-	groupsClient = resources.NewGroupsClient(subscriptionID)
-	groupsClient.Authorizer = spToken
+func createClients(subscriptionID string, authorizer *autorest.BearerAuthorizer) {
+	sampleUA := fmt.Sprintf("Azure-Samples/resource-manager-go-resources-and-groups/%s", utils.GetCommit())
 
-	resourcesClient = resources.NewClient(subscriptionID)
-	resourcesClient.Authorizer = spToken
-	resourcesClient.APIVersion = "2015-06-01"
+	groupsClient = resources.NewGroupsClient(subscriptionID)
+	groupsClient.Authorizer = authorizer
+	groupsClient.Client.AddToUserAgent(sampleUA)
+
+	resourcesClient = resources.NewGroupClient(subscriptionID)
+	resourcesClient.Authorizer = authorizer
+	resourcesClient.Client.AddToUserAgent(sampleUA)
 }
