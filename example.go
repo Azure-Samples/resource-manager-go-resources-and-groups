@@ -17,6 +17,7 @@ import (
 var (
 	groupName = "your-azure-sample-group"
 	location  = "westus"
+	fileName  = fmt.Sprintf("%s-template.json", groupName)
 
 	tenantID     string
 	namespace    = "Microsoft.KeyVault"
@@ -48,13 +49,14 @@ func main() {
 	listResources()
 	exportTemplate()
 
-	fmt.Print("Press enter to delete the resources created in this sample...")
+	fmt.Print("Press enter to delete the resources and files created in this sample...")
 
 	var input string
 	fmt.Scanln(&input)
 
 	deleteResource()
 	deleteResourceGroup()
+	deleteTemplate()
 
 	fmt.Println("Done!")
 }
@@ -219,15 +221,13 @@ func exportTemplate() {
 	exported, err := json.MarshalIndent(template, prefix, indent)
 	onErrorFail(err, "MarshalIndent failed")
 
-	fileTemplate := "%s-template.json"
-	fileName := fmt.Sprintf(fileTemplate, groupName)
 	if _, err := os.Stat(fileName); err == nil {
 		onErrorFail(fmt.Errorf("File '%s' already exists", fileName), "Saving JSON file failed")
 	}
 	err = ioutil.WriteFile(fileName, exported, 0666)
 	onErrorFail(err, "WriteFile failed")
 
-	fmt.Printf("The resource group template has been saved to %s\n", fmt.Sprintf(fileTemplate, groupName))
+	fmt.Printf("The resource group template has been saved to %s\n", fileName)
 }
 
 // deleteResource deletes a generic resource
@@ -251,15 +251,9 @@ func deleteResourceGroup() {
 	onErrorFail(<-errChan, "Delete failed")
 }
 
-// getEnvVarOrExit returns the value of specified environment variable or terminates if it's not defined.
-func getEnvVarOrExit(varName string) string {
-	value := os.Getenv(varName)
-	if value == "" {
-		fmt.Printf("Missing environment variable %s\n", varName)
-		os.Exit(1)
-	}
-
-	return value
+func deleteTemplate() {
+	fmt.Println("Delete template file")
+	onErrorFail(os.Remove(fileName), "Delete template failed")
 }
 
 // onErrorFail prints a failure message and exits the program if err is not nil.
@@ -273,7 +267,7 @@ func onErrorFail(err error, message string) {
 }
 
 func createClients(subscriptionID string, authorizer *autorest.BearerAuthorizer) {
-	sampleUA := fmt.Sprintf("Azure-Samples/resource-manager-go-resources-and-groups/%s", utils.GetCommit())
+	sampleUA := fmt.Sprintf("sample/0011/%s", utils.GetCommit())
 
 	groupsClient = resources.NewGroupsClient(subscriptionID)
 	groupsClient.Authorizer = authorizer
