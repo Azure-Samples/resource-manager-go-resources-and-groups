@@ -1,11 +1,13 @@
-package: resource-manager-go-resources-and-groups
+package: github.com/Azure-Samples/resource-manager-go-resources-and-groups
 import:
 - package: github.com/Azure/azure-sdk-for-go
-  version: v7.0.1-beta
+  version: v10.1.0-beta
   subpackages:
   - arm/resources/resources
 - package: github.com/Azure/go-autorest
-  version: v7.2.2
+  version: master
   subpackages:
+  - autorest
   - autorest/azure
   - autorest/to
+  - autorest/utils

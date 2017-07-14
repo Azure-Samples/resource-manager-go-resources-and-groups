@@ -71,10 +71,11 @@ If you don't have a Microsoft Azure subscription you can get a FREE trial accoun
 ### Create resource group
 
 ```go
-	rg := resources.ResourceGroup{
-		Location: to.StringPtr(location),
-	}
-	_, err := groupsClient.CreateOrUpdate(groupName, rg)
+rg.Tags = &map[string]*string{
+	"who rocks": to.StringPtr("golang"),
+	"where":     to.StringPtr("on azure"),
+}
+_, err := groupsClient.CreateOrUpdate(groupName, rg)
 ```
 
 ### Update the resource group
@@ -82,11 +83,11 @@ If you don't have a Microsoft Azure subscription you can get a FREE trial accoun
 The sample updates the resource group with tags.
 
 ```go
-	rg.Tags = &map[string]*string{
-		"who rocks": to.StringPtr("golang"),
-		"where":     to.StringPtr("on azure"),
-	}
-	_, err := groupsClient.CreateOrUpdate(groupName, rg)
+rg.Tags = &map[string]*string{
+	"who rocks": to.StringPtr("golang"),
+	"where":     to.StringPtr("on azure"),
+}
+_, err := groupsClient.CreateOrUpdate(groupName, rg)
 ```
 
 ### List resource groups in subscription
@@ -100,35 +101,35 @@ groupsList, err := groupClient.List("", nil)
 In this sample, a Key Vault is created, but it can be any resource.
 
 ```go
-	genericResource := resources.GenericResource{
-		Location: to.StringPtr(location),
-		Properties: &map[string]interface{}{
-			"sku": map[string]string{
-				"Family": "A",
-				"Name":   "standard",
-			},
-			"tenantID":             tenantID,
-			"accessPolicies":       []string{},
-			"enabledForDeployment": true,
+genericResource := resources.GenericResource{
+	Location: to.StringPtr(location),
+	Properties: &map[string]interface{}{
+		"sku": map[string]string{
+			"Family": "A",
+			"Name":   "standard",
 		},
-	}
-	_, err := resourcesClient.CreateOrUpdate(groupName, namespace, "", resourceType, resourceName, genericResource, nil)
+		"tenantID":             tenantID,
+		"accessPolicies":       []string{},
+		"enabledForDeployment": true,
+	},
+}
+_, err := resourcesClient.CreateOrUpdate(groupName, namespace, "", resourceType, resourceName, genericResource, nil)
 ```
 
 ### Update the resource with tags
 
 ```go
-	gr.Tags = &map[string]*string{
-		"who rocks": to.StringPtr("golang"),
-		"where":     to.StringPtr("on azure"),
-	}
-	_, err := resourcesClient.CreateOrUpdate(groupName, namespace, "", resourceType, resourceName, gr, nil)
+gr.Tags = &map[string]*string{
+	"who rocks": to.StringPtr("golang"),
+	"where":     to.StringPtr("on azure"),
+}
+_, err := resourcesClient.CreateOrUpdate(groupName, namespace, "", resourceType, resourceName, gr, nil)
 ```
 
 ### List resources inside the resource group
 
 ```go
-	resourcesList, err := groupsClient.ListResources(groupName, "", "", nil)
+resourcesList, err := groupsClient.ListResources(groupName, "", "", nil)
 ```
 
 ### Export resource group template to a json file
@@ -136,35 +137,35 @@ In this sample, a Key Vault is created, but it can be any resource.
 Resources can be exported into a json file. The asterisk * indicates all resources should be exported. Later, the json file can be used for [template deployment](https://github.com/Azure-Samples/resource-manager-go-template-deployment).
 
 ```go
-	// The asterisk * indicates all resources should be exported.
-	expReq := resources.ExportTemplateRequest{
-		Resources: &[]string{"*"},
-	}
-	template, err := groupsClient.ExportTemplate(groupName, expReq)
-	onErrorFail(err, "ExportTemplate failed")
+// The asterisk * indicates all resources should be exported.
+expReq := resources.ExportTemplateRequest{
+	ResourcesProperty: &[]string{"*"},
+}
+template, err := groupsClient.ExportTemplate(groupName, expReq)
+onErrorFail(err, "ExportTemplate failed")
 
-	prefix, indent := "", "    "
-	exported, err := json.MarshalIndent(template, prefix, indent)
-	onErrorFail(err, "MarshalIndent failed")
+prefix, indent := "", "    "
+exported, err := json.MarshalIndent(template, prefix, indent)
+onErrorFail(err, "MarshalIndent failed")
 
-	fileTemplate := "%s-template.json"
-	fileName := fmt.Sprintf(fileTemplate, groupName)
-	if _, err := os.Stat(fileName); err == nil {
-		onErrorFail(fmt.Errorf("File '%s' already exists", fileName), "Saving JSON file failed")
-	}
-	ioutil.WriteFile(fileName, exported, 0666)
+fileTemplate := "%s-template.json"
+fileName := fmt.Sprintf(fileTemplate, groupName)
+if _, err := os.Stat(fileName); err == nil {
+	onErrorFail(fmt.Errorf("File '%s' already exists", fileName), "Saving JSON file failed")
+}
+ioutil.WriteFile(fileName, exported, 0666)
 ```
 
 ### Delete a generic resource
 
 ```go
-	_, err := resourcesClient.Delete(groupName, namespace, "", resourceType, resourceName, nil)
+resourcesClient.Delete(groupName, namespace, "", resourceType, resourceName, nil)
 ```
 
 ### Delete the resource group
 
 ```go
-	_, err := groupsClient.Delete(groupName, nil)
+groupsClient.Delete(groupName, nil)
 ```
 
 <a id="info"></a>
